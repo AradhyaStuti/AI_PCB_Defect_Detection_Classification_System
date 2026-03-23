@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+my_virtual_env/
+.venv/
+venv/
+
+# Model weights (large binary — track with Git LFS or download separately)
+model/*.pth
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
