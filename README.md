@@ -386,47 +386,77 @@ Input Image ──> pHash Match ──> SSIM Comparison ──> Batch CNN Classi
 
 ---
 
-## What I Did During This Internship
+## What I Did in My Internship
 
-This project went through two major phases. The first phase was building the core detection system from scratch. The second phase was refactoring the entire codebase to make it production-ready. Here's a breakdown of my contributions:
+This was my internship project. The goal given to me was to build an AI-based system that can automatically detect and classify defects on PCB boards. I had to go through the full cycle — from dataset preparation to model training to building a working web app. Here's everything I did:
 
-### Phase 1 — Built the Core System
+- Studied the DeepPCB dataset and understood the 6 defect categories.
+- Preprocessed and aligned template-test PCB image pairs.
+- Implemented image subtraction and thresholding to highlight defect regions.
+- Built contour detection and ROI extraction pipeline to isolate individual defects from the subtracted images.
+- Labeled and organized the extracted ROIs into class-wise folders for training.
+- Applied data augmentation (rotation, flipping, brightness, scaling) to balance the dataset.
+- Trained a ResNet-50 model using transfer learning on the 6 defect classes for 50 epochs.
+- Evaluated model performance using accuracy/loss curves and confusion matrix.
+- Designed the sliding window + SSIM comparison approach to detect where defects are on a full PCB image.
+- Built the Streamlit web app where you can upload a PCB image, run detection, and see annotated results.
+- Connected the inference backend to the frontend to make the full pipeline work end-to-end.
+- Added download functionality for annotated images and detection logs.
+- Documented the full workflow, milestones, and deliverables.
 
-- Collected and prepared the DeepPCB dataset with template-test image pairs.
-- Implemented image subtraction and thresholding pipeline to highlight defect regions.
-- Built contour detection and ROI extraction to isolate individual defects.
-- Trained a ResNet-50 classifier using transfer learning on 6 defect categories (50 epochs).
-- Created the sliding window + SSIM comparison approach for differential defect detection.
-- Built the Streamlit web app for uploading PCB images and viewing results.
-- Integrated the inference backend with the frontend for end-to-end predictions.
+---
 
-### Phase 2 — Refactored to Production Quality
+## What I Built on My Own (Beyond the Internship Requirements)
 
-The initial codebase worked but had several issues — hardcoded paths, no error handling, model loading on every import, debug prints everywhere. I rewrote the entire pipeline to meet industry standards:
+After the internship work was done, I wasn't happy with the code quality. It worked, but it wasn't something I'd be proud to show in an interview or put on my resume as-is. So I spent extra time and rewrote major parts of the project to make it production-grade. None of this was required — I did it because I wanted to learn how real engineers write code.
 
-| What I Changed | Before | After |
+### Rewrote the entire inference pipeline
+
+The original `inference_new.py` was a flat script with everything running at module level. I redesigned it into a proper `PCBDefectPipeline` class:
+
+| What I Changed | Before (Internship Version) | After (My Improvement) |
 |---|---|---|
-| **File paths** | Hardcoded `C:\Users\User\...` absolute paths | Relative paths using `Path(__file__).parent` |
-| **Model loading** | Loaded at import time, crashed if path missing | Lazy-loaded `PCBDefectPipeline` class, loads only when needed |
-| **Inference speed** | One patch at a time through the model | Batch inference (32 patches per forward pass) |
-| **GPU memory** | No `torch.no_grad()` in detection loop | Proper `no_grad` context, no gradient accumulation |
-| **Error handling** | Bare `except:` catching everything | Specific `OSError` handling, custom `ImageTooLargeError` |
-| **Logging** | Emoji-filled `print()` statements | Python `logging` module with structured format |
-| **SSIM call** | `ssim(full=True)` allocating unused diff image | `full=False` (default), saves memory |
-| **Matplotlib** | Deprecated `plt.cm.get_cmap()` | `plt.colormaps["hsv"]` |
-| **Softmax** | Computed twice per patch in some cases | Single computation per patch |
-| **Type safety** | No type hints anywhere | Full annotations, `TypedDict`, `from __future__ import annotations` |
-| **Input validation** | None — could OOM on huge images | 16MP pixel cap, 10MB upload limit, minimum size check |
-| **Streamlit caching** | Model reloaded on every rerun | `@st.cache_resource` keeps pipeline alive |
+| **File paths** | Hardcoded `C:\Users\User\...` absolute paths | Relative paths using `Path(__file__).parent` — works on any machine |
+| **Model loading** | Loaded at import time, crashed if path was wrong | Lazy-loaded inside the class, loads only when you actually run inference |
+| **Inference speed** | Classified one patch at a time (slow) | Batch inference — 32 patches in one forward pass, way faster on GPU |
+| **GPU memory** | No `torch.no_grad()`, gradients accumulating for nothing | Proper `no_grad` context, clean memory usage |
+| **Error handling** | Bare `except:` catching every error silently | Specific `OSError` catches, custom `ImageTooLargeError` exception |
+| **Logging** | `print()` with emojis everywhere | Python `logging` module with proper timestamps and levels |
+| **SSIM computation** | `ssim(full=True)` — allocating a diff image nobody used | `full=False`, saves memory on every window comparison |
+| **Matplotlib** | Deprecated `plt.cm.get_cmap()` | Updated to `plt.colormaps["hsv"]` |
+| **Softmax** | Computed twice per patch in some code paths | Single forward pass, single softmax — no wasted computation |
+| **Type safety** | Zero type hints | Full type annotations, `TypedDict` for detection results |
+| **Input validation** | Nothing — a 100MP image could crash the server | 16MP pixel cap, minimum size check, 10MB upload limit in the app |
+| **Streamlit caching** | Model reloaded from disk on every button click | `@st.cache_resource` keeps the pipeline alive across reruns |
 | **Datetime** | Naive `datetime.now()` | Timezone-aware `datetime.now(tz=timezone.utc)` |
 
-### Phase 3 — Added Testing & CI/CD
+### Added a full test suite
 
-- Wrote 15 unit tests using pytest with mock models (no `.pth` file dependency).
-- Tests cover: input validation, golden database, batch classification, anomaly detection, visualization, and full pipeline.
-- Set up `pyproject.toml` with ruff (linter) and mypy (type checker) configurations.
-- Created GitHub Actions CI pipeline with 3 parallel jobs: lint, typecheck, test.
-- Achieved zero lint warnings across the entire codebase.
+I wrote 15 unit tests from scratch using pytest. The tests use mock models so you don't need the actual `.pth` file to run them. They cover:
+
+- Input validation (accepts normal images, rejects too small/too large)
+- Golden database (loads images, skips non-images, handles empty directory)
+- Batch classification (single patch and batch of 4)
+- Anomaly detection (identical images = 0 detections, different images = detections found, boxes stay within image bounds)
+- Visualization (returns a copy, actually draws boxes)
+- Full pipeline end-to-end (returns correct types, validates input)
+
+All 15 pass in under 2 seconds.
+
+### Set up CI/CD and code quality tools
+
+- Created `pyproject.toml` with ruff linter config (strict rules — bugbear, simplify, type-checking imports).
+- Added mypy type checking configuration.
+- Built a GitHub Actions CI pipeline with 3 parallel jobs: **lint**, **typecheck**, **test**.
+- Fixed every single lint warning — the codebase is completely clean.
+
+### Cleaned up the Streamlit app
+
+- Removed dead imports and commented-out code.
+- Added proper error handling around inference calls.
+- Added file size validation before even opening the uploaded image.
+- Added "No defects detected" feedback message.
+- Laid out download buttons in columns for better UX.
 
 ---
 
