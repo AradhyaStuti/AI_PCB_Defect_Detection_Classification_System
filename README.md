@@ -386,6 +386,50 @@ Input Image ──> pHash Match ──> SSIM Comparison ──> Batch CNN Classi
 
 ---
 
+## What I Did During This Internship
+
+This project went through two major phases. The first phase was building the core detection system from scratch. The second phase was refactoring the entire codebase to make it production-ready. Here's a breakdown of my contributions:
+
+### Phase 1 — Built the Core System
+
+- Collected and prepared the DeepPCB dataset with template-test image pairs.
+- Implemented image subtraction and thresholding pipeline to highlight defect regions.
+- Built contour detection and ROI extraction to isolate individual defects.
+- Trained a ResNet-50 classifier using transfer learning on 6 defect categories (50 epochs).
+- Created the sliding window + SSIM comparison approach for differential defect detection.
+- Built the Streamlit web app for uploading PCB images and viewing results.
+- Integrated the inference backend with the frontend for end-to-end predictions.
+
+### Phase 2 — Refactored to Production Quality
+
+The initial codebase worked but had several issues — hardcoded paths, no error handling, model loading on every import, debug prints everywhere. I rewrote the entire pipeline to meet industry standards:
+
+| What I Changed | Before | After |
+|---|---|---|
+| **File paths** | Hardcoded `C:\Users\User\...` absolute paths | Relative paths using `Path(__file__).parent` |
+| **Model loading** | Loaded at import time, crashed if path missing | Lazy-loaded `PCBDefectPipeline` class, loads only when needed |
+| **Inference speed** | One patch at a time through the model | Batch inference (32 patches per forward pass) |
+| **GPU memory** | No `torch.no_grad()` in detection loop | Proper `no_grad` context, no gradient accumulation |
+| **Error handling** | Bare `except:` catching everything | Specific `OSError` handling, custom `ImageTooLargeError` |
+| **Logging** | Emoji-filled `print()` statements | Python `logging` module with structured format |
+| **SSIM call** | `ssim(full=True)` allocating unused diff image | `full=False` (default), saves memory |
+| **Matplotlib** | Deprecated `plt.cm.get_cmap()` | `plt.colormaps["hsv"]` |
+| **Softmax** | Computed twice per patch in some cases | Single computation per patch |
+| **Type safety** | No type hints anywhere | Full annotations, `TypedDict`, `from __future__ import annotations` |
+| **Input validation** | None — could OOM on huge images | 16MP pixel cap, 10MB upload limit, minimum size check |
+| **Streamlit caching** | Model reloaded on every rerun | `@st.cache_resource` keeps pipeline alive |
+| **Datetime** | Naive `datetime.now()` | Timezone-aware `datetime.now(tz=timezone.utc)` |
+
+### Phase 3 — Added Testing & CI/CD
+
+- Wrote 15 unit tests using pytest with mock models (no `.pth` file dependency).
+- Tests cover: input validation, golden database, batch classification, anomaly detection, visualization, and full pipeline.
+- Set up `pyproject.toml` with ruff (linter) and mypy (type checker) configurations.
+- Created GitHub Actions CI pipeline with 3 parallel jobs: lint, typecheck, test.
+- Achieved zero lint warnings across the entire codebase.
+
+---
+
 ## Future Scope
 
 - Support Vision Transformers (ViT) for higher accuracy.
