@@ -5,7 +5,7 @@
 <h1 align="center">AI PCB Defect Detection & Classification System</h1>
 
 <p align="center">
-  <strong>Automated defect detection and classification for Printed Circuit Boards using deep learning</strong>
+  <strong>An automated system for detecting and classifying defects in Printed Circuit Boards (PCBs) using image processing and deep learning techniques.</strong>
 </p>
 
 <p align="center">
@@ -18,19 +18,57 @@
 
 ---
 
-## What is this?
+## Project Statement
 
-I built this project to solve a real problem in PCB manufacturing — finding defects quickly and accurately. The idea is simple: take a picture of a PCB, compare it against a known-good reference, and let a neural network figure out what went wrong.
+The objective is to develop an end-to-end defect detection and classification system for PCBs. The system:
 
-The system uses **differential image analysis** (comparing test vs. golden reference using SSIM) combined with a **ResNet-50 classifier** trained on the DeepPCB dataset to detect and categorize six types of defects. Everything runs through a clean Streamlit web interface where you can upload an image, see results instantly, and download annotated outputs.
+- Detects and localizes defects using comparison with defect-free templates.
+- Classifies detected defects into predefined categories using a trained CNN (ResNet-50).
+- Provides a user-friendly frontend for image upload and viewing labeled outputs.
+- Integrates a modular backend pipeline for processing images and returning annotated results.
+- Exports annotated outputs and detection logs for documentation and analysis.
 
-It's not perfect, but it works well enough to be genuinely useful. I've spent a lot of time refactoring the codebase to make it production-grade — proper error handling, batch inference, input validation, full test coverage, CI pipeline, the whole nine yards.
+---
 
-## Defect Categories
+## Features
+
+- Automated defect detection using template-based differential comparison (SSIM).
+- Transfer learning-based classification using ResNet-50 trained on DeepPCB dataset.
+- Perceptual hashing (pHash) for automatic golden reference matching.
+- Batch inference pipeline — classifies patches in batches of 32 for GPU efficiency.
+- Input validation with pixel budget limits and file size guards.
+- Non-Maximum Suppression (NMS) to eliminate overlapping detections.
+- Web-based frontend (Streamlit) for uploading images and viewing predictions in real-time.
+- Annotated image export and CSV-style log generation for analysis.
+- Full test suite (15 unit tests) with CI/CD pipeline via GitHub Actions.
+- Production-grade code — type hints, structured logging, lazy model loading, zero hardcoded paths.
+
+---
+
+## Tech Stack
+
+| Area | Tools / Libraries |
+|---|---|
+| Deep Learning | PyTorch, torchvision (ResNet-50) |
+| Image Comparison | scikit-image (SSIM), ImageHash (pHash) |
+| Image Processing | Pillow, NumPy |
+| Frontend | Streamlit |
+| Backend | Python, Modular Inference Pipeline |
+| Visualization | Matplotlib (colormaps) |
+| Testing | pytest (15 tests) |
+| CI/CD | GitHub Actions (lint + typecheck + test) |
+| Code Quality | ruff (linter), mypy (type checker) |
+| Evaluation | Accuracy, Loss Curves, Confusion Matrix |
+
+---
+
+## Dataset
+
+**DeepPCB Dataset:** [Download from Dropbox](https://www.dropbox.com/scl/fi/4vrtqn7t001yl41oucflu/PCB_DATASET.zip?rlkey=pghz15q2bsg205wynjwsj2c3n&e=2&dl=0)
 
 The model classifies defects into six categories from the DeepPCB benchmark:
 
-| Defect | What it looks like |
+| Defect | Description |
 |---|---|
 | **Missing Hole** | A drill hole that should exist but doesn't |
 | **Mouse Bite** | Irregular, jagged edges along copper traces |
@@ -39,25 +77,143 @@ The model classifies defects into six categories from the DeepPCB benchmark:
 | **Spur** | Small unwanted copper protrusion from a trace |
 | **Spurious Copper** | Random copper deposits where there shouldn't be any |
 
-## How it works
+---
 
-The detection pipeline has three stages:
-
-**1. Golden Reference Matching** — When you upload a PCB image, the system finds the closest matching reference image from the golden database using perceptual hashing (pHash). This handles slight variations in orientation and lighting.
-
-**2. Sliding Window + SSIM** — A 128x128 pixel window slides across both the input and reference images. For each window position, structural similarity (SSIM) is computed. If the similarity drops below 0.95, that region is flagged as potentially defective.
-
-**3. Batch Classification + NMS** — All suspicious patches are collected and fed through the ResNet-50 classifier in batches of 32 (much faster than one-by-one). Non-maximum suppression cleans up overlapping detections.
+## System Workflow
 
 ```
-Input Image ──> pHash Match ──> SSIM Comparison ──> Batch CNN Classification ──> NMS ──> Annotated Output
-                    │                  │                       │
-              Golden DB          Threshold=0.95         Confidence>0.80
+AI PCB Defect Detection and Classification System
+│
+├── 1. Dataset Preparation
+│   ├── 1.1 Dataset Collection
+│   │   ├── DeepPCB Dataset
+│   │   └── Defect-free (Template) Images
+│   ├── 1.2 Image Preprocessing
+│   │   ├── Image Alignment
+│   │   ├── Grayscale Conversion
+│   │   ├── Noise Reduction
+│   │   └── Normalization
+│   └── 1.3 Image Subtraction
+│       ├── Template – Test Image Subtraction
+│       ├── Thresholding
+│       └── Binary Defect Mask Generation
+│
+├── 2. Defect Localization
+│   ├── 2.1 Contour Detection
+│   │   ├── Find Defect Contours
+│   │   └── Filter Small/Irrelevant Contours
+│   ├── 2.2 ROI Extraction
+│   │   ├── Bounding Box Generation
+│   │   └── Cropped Defect Patches
+│   └── 2.3 Defect Visualization
+│       ├── Contour Overlay
+│       └── Bounding Box Annotation
+│
+├── 3. Dataset Preparation for Training
+│   ├── 3.1 Label Assignment
+│   │   ├── Missing Hole
+│   │   ├── Spur
+│   │   ├── Spurious Copper
+│   │   ├── Short
+│   │   ├── Open Circuit
+│   │   └── Mouse Bite
+│   ├── 3.2 Image Resizing
+│   │   └── Resize ROIs to 128 x 128
+│   └── 3.3 Data Augmentation
+│       ├── Rotation
+│       ├── Flipping
+│       ├── Brightness Adjustment
+│       └── Scaling
+│
+├── 4. Model Training
+│   ├── 4.1 Model Selection
+│   │   └── Transfer Learning (ResNet50)
+│   ├── 4.2 Training Pipeline
+│   │   ├── Forward Pass
+│   │   ├── Loss Computation
+│   │   ├── Backpropagation
+│   │   └── Weight Optimization
+│   └── 4.3 Model Evaluation
+│       ├── Accuracy & Loss Curves
+│       ├── Confusion Matrix
+│       └── Class-wise Performance
+│
+├── 5. Inference Pipeline
+│   ├── 5.1 Image Upload
+│   │   └── Test PCB Image
+│   ├── 5.2 Golden Reference Matching
+│   │   └── pHash-based Best Match Selection
+│   ├── 5.3 Defect Detection
+│   │   ├── Sliding Window (128x128, stride 32)
+│   │   └── SSIM Comparison (threshold 0.95)
+│   ├── 5.4 Defect Classification
+│   │   ├── Batch Inference (32 patches/forward pass)
+│   │   └── CNN Prediction (confidence > 0.80)
+│   └── 5.5 Post-processing
+│       ├── Non-Maximum Suppression (IoU 0.2)
+│       ├── Bounding Boxes & Labels
+│       └── Confidence Scores
+│
+├── 6. Web Application (Frontend)
+│   ├── Streamlit UI
+│   │   ├── Image Upload Interface
+│   │   ├── Input Validation (16MP limit, 10MB file size)
+│   │   ├── Real-time Predictions
+│   │   └── Result Visualization
+│   └── User Interaction
+│       ├── View Annotated Images
+│       ├── Detection Results Table
+│       └── Download Outputs (PNG + TXT Log)
+│
+├── 7. Backend Integration
+│   ├── PCBDefectPipeline Class
+│   │   ├── Lazy Model Loading
+│   │   ├── Cached via @st.cache_resource
+│   │   ├── Image Processing Module
+│   │   ├── Batch Inference Module
+│   │   └── Annotation Module
+│   └── Logging & Export
+│       ├── Structured Logging (Python logging)
+│       ├── Prediction Logs (CSV format)
+│       └── Annotated Image Export
+│
+├── 8. Testing & CI/CD
+│   ├── Unit Tests (15 tests, pytest)
+│   │   ├── Input Validation Tests
+│   │   ├── Golden Database Tests
+│   │   ├── Batch Classification Tests
+│   │   ├── Detection Pipeline Tests
+│   │   ├── Visualization Tests
+│   │   └── End-to-End Pipeline Tests
+│   └── GitHub Actions CI
+│       ├── Lint (ruff)
+│       ├── Type Check (mypy)
+│       └── Test (pytest)
+│
+└── 9. Final Output
+    ├── Annotated PCB Image
+    ├── Defect Class Labels
+    ├── Confidence Scores
+    ├── Detection Log (CSV)
+    └── Deployment-Ready Application
 ```
 
-## Sample Results
+---
 
-Here are some actual detection results from the system:
+## Project Modules & Milestones
+
+### Milestone 1: Dataset Preparation and Image Processing
+
+**Module 1: Dataset Setup and Image Subtraction**
+- Aligned and preprocessed template-test image pairs.
+- Applied image subtraction and thresholding to highlight defects.
+- **Deliverables:** Cleaned dataset, subtraction scripts, sample defect-highlighted images.
+
+**Module 2: Contour Detection and ROI Extraction**
+- Detected contours of defects and extracted ROI for model training.
+- **Deliverables:** ROI extraction pipeline, labeled defect samples, visualization of contours.
+
+**Results:**
 
 | Missing Hole | Spurious Copper |
 |---|---|
@@ -71,22 +227,58 @@ Here are some actual detection results from the system:
 |---|---|
 | ![Open Circuit](image/README/1768379036675.png) | ![Mouse Bite](image/README/1768379058640.png) |
 
-**After running inference:**
+---
+
+### Milestone 2: Model Training and Evaluation
+
+**Module 3: Model Training**
+- Used transfer learning with ResNet-50 for defect classification.
+- Preprocessed and augmented images (128x128) for training over 50 epochs.
+- **Deliverables:** Trained model (`best_resnet50_pcb_defects_50epochs.pth`), accuracy/loss metrics, confusion matrix.
+
+**Module 4: Evaluation and Prediction Testing**
+- Tested model on unseen images.
+- Compared predictions against ground truth annotations.
+- **Deliverables:** Annotated test images, final evaluation report.
+
+**Result after inference:**
 
 ![Inference Result](image/README/1768378725086.png)
 
-## Tech Stack
+---
 
-| Component | Technology |
-|---|---|
-| Deep Learning | PyTorch, torchvision (ResNet-50) |
-| Image Comparison | scikit-image (SSIM), ImageHash (pHash) |
-| Web Interface | Streamlit |
-| Image Processing | Pillow, NumPy |
-| Visualization | Matplotlib (colormaps) |
-| Testing | pytest (15 tests) |
-| CI/CD | GitHub Actions (lint + typecheck + test) |
-| Linting | ruff, mypy |
+### Milestone 3: Frontend and Backend Integration
+
+**Module 5: Web UI for Image Upload**
+- Built Streamlit-based interface for PCB image uploads.
+- Displays annotated images with defect labels and confidence scores in real-time.
+- Added input validation (10MB upload limit, 16MP pixel cap).
+
+**Module 6: Backend Pipeline for Inference**
+- Built `PCBDefectPipeline` class with lazy loading and batch inference.
+- Connected backend to Streamlit frontend with `@st.cache_resource` caching.
+- **Deliverables:** Full prediction pipeline, annotated outputs, CSV detection logs.
+
+---
+
+### Milestone 4: Testing, Code Quality & CI/CD
+
+**Module 7: Unit Testing**
+- Wrote 15 unit tests covering validation, golden DB, batch classification, detection, visualization, and end-to-end pipeline.
+- Tests use mock models — no `.pth` file needed to run them.
+- All tests pass in under 2 seconds.
+
+**Module 8: Code Quality & CI/CD**
+- Configured ruff linter with strict rules (bugbear, simplify, type-checking).
+- Added mypy type checking configuration.
+- Set up GitHub Actions CI with 3 parallel jobs: lint, typecheck, test.
+- Zero lint warnings, full type annotations across codebase.
+
+**Module 9: Documentation & Finalization**
+- Comprehensive README with project structure, setup instructions, and results.
+- Production-grade codebase with no hardcoded paths, proper error handling, and structured logging.
+
+---
 
 ## Project Structure
 
@@ -97,13 +289,13 @@ AI_PCB_Defect_Detection_Classification_System/
 ├── requirements.txt        # Python dependencies
 ├── pyproject.toml          # Project config (ruff, mypy, pytest)
 ├── model/
-│   └── best_resnet50_pcb_defects_50epochs.pth   # Trained weights
+│   └── best_resnet50_pcb_defects_50epochs.pth
 ├── PCB_USED/               # Golden reference images
 │   ├── 01.JPG
 │   ├── 04.JPG
 │   └── ...
 ├── tests/
-│   ├── conftest.py         # Shared test fixtures
+│   ├── conftest.py         # Shared test fixtures & mock model
 │   └── test_inference.py   # 15 unit tests
 ├── .github/
 │   └── workflows/
@@ -112,80 +304,96 @@ AI_PCB_Defect_Detection_Classification_System/
     └── README/             # Images used in this README
 ```
 
-## Getting Started
+---
 
-### Prerequisites
+## Installation
 
-- Python 3.10 or higher
-- ~500MB disk space (mostly PyTorch)
-- GPU optional but recommended for faster inference
-
-### Installation
-
+**1. Clone the repository**
 ```bash
-# Clone the repo
 git clone https://github.com/AradhyaStuti/AI_PCB_Defect_Detection_Classification_System.git
 cd AI_PCB_Defect_Detection_Classification_System
+```
 
-# Create and activate virtual environment
+**2. Create and activate a virtual environment**
+```bash
 python -m venv my_virtual_env
 my_virtual_env\Scripts\activate        # Windows
 # source my_virtual_env/bin/activate   # Linux/Mac
+```
 
-# Install dependencies
+**3. Install dependencies**
+```bash
 pip install -r requirements.txt
 ```
 
-### Download the Dataset
+**4. Add your trained model weights**
 
-If you want to retrain or experiment with the model:
+Place `best_resnet50_pcb_defects_50epochs.pth` inside the `model/` folder.
 
-[Download DeepPCB Dataset (Dropbox)](https://www.dropbox.com/scl/fi/4vrtqn7t001yl41oucflu/PCB_DATASET.zip?rlkey=pghz15q2bsg205wynjwsj2c3n&e=2&dl=0)
+---
 
-### Run the App
+## How to Use
 
 ```bash
 streamlit run app.py
 ```
 
-Open `http://localhost:8501` in your browser. Upload a PCB image, hit **Run detection**, and you'll see annotated results with bounding boxes, labels, and confidence scores. You can download both the annotated image and a CSV-style detection log.
+1. Open `http://localhost:8501` in your browser.
+2. Upload a PCB image (JPG/PNG, max 10MB).
+3. Click **Run detection**.
+4. View results with bounding boxes, defect labels, and confidence scores.
+5. Download the annotated image (PNG) and detection log (TXT).
 
-### Run Tests
+---
+
+## How to Run Tests
 
 ```bash
 pip install pytest
 pytest tests/ -v
 ```
 
-All 15 tests should pass in under 2 seconds. They use mock models so you don't need the actual `.pth` file to run them.
+All 15 tests pass in under 2 seconds. No model file needed — tests use mock models.
 
-## Architecture Decisions
+---
 
-A few things I deliberately chose and why:
+## How the Detection Pipeline Works
 
-- **Lazy loading** — The model and golden database don't load until the first inference call. This means importing the module is instant and side-effect-free, which matters for testing and for Streamlit's rerun model.
-- **`@st.cache_resource`** — The pipeline singleton survives Streamlit reruns. Without this, the model would reload from disk every time you click a button.
-- **Batch inference** — Instead of feeding patches through the model one at a time (which is painfully slow), I collect all SSIM-flagged patches first, then run them through in batches of 32. Big difference on GPU.
-- **Input validation** — There's a 16MP pixel cap and a minimum image size check. Without this, someone could upload a 100MP image and OOM the server.
-- **No hardcoded paths** — Everything is relative to the script directory. The old version had `C:\Users\User\...` paths baked in, which obviously breaks on any other machine.
+```
+Input Image ──> pHash Match ──> SSIM Comparison ──> Batch CNN Classification ──> NMS ──> Annotated Output
+                    │                  │                       │
+              Golden DB          Threshold=0.95         Confidence>0.80
+```
 
-## Known Limitations
+**Step 1 — Golden Reference Matching:** The system finds the closest matching reference image from the golden database using perceptual hashing (pHash).
 
-I want to be upfront about what this system can and can't do:
+**Step 2 — Sliding Window + SSIM:** A 128x128 pixel window slides across both images. Structural similarity (SSIM) is computed for each position. Regions with SSIM < 0.95 are flagged as anomalous.
 
-- **SSIM comparison is CPU-bound** — The sliding window SSIM loop is pure Python. Vectorizing it with OpenCV's `matchTemplate` would be 3-5x faster, but I haven't gotten to it yet.
-- **Requires golden references** — If you don't have a matching reference image in `PCB_USED/`, the system can't detect anything. It's not a standalone object detector.
-- **Single-image inference only** — No batch file upload or directory processing yet.
-- **Fixed sliding window** — The 128x128 window might miss very large or very small defects. An adaptive multi-scale approach would help.
+**Step 3 — Batch Classification:** All suspicious patches are collected and classified through ResNet-50 in batches of 32. This is significantly faster than classifying one patch at a time.
+
+**Step 4 — Non-Maximum Suppression:** Overlapping detections are filtered using NMS (IoU threshold = 0.2) to produce clean final results.
+
+---
+
+## Key Architecture Decisions
+
+- **Lazy Loading** — Model and golden database load only on first inference call. Importing the module has zero side effects.
+- **`@st.cache_resource`** — Pipeline singleton survives Streamlit reruns. Model doesn't reload on every button click.
+- **Batch Inference** — Patches classified in batches of 32 instead of one-by-one. Major speed improvement on GPU.
+- **Input Validation** — 16MP pixel budget and 10MB upload limit prevent OOM crashes.
+- **Relative Paths** — All paths are relative to the script directory. No hardcoded absolute paths.
+- **Structured Logging** — Python `logging` module instead of print statements.
+
+---
 
 ## Future Scope
 
-- Vision Transformer (ViT) backbone for potentially better accuracy
-- Multi-scale sliding window for detecting defects of varying sizes
-- Batch processing for multiple PCB images at once
-- Real-time video stream detection for production line integration
-- Docker containerization for easy deployment
-- Cloud deployment (AWS/GCP) for industrial use
+- Support Vision Transformers (ViT) for higher accuracy.
+- Multi-scale sliding window for defects of varying sizes.
+- Batch processing of multiple PCB images.
+- Real-time video stream defect detection.
+- Docker containerization for easy deployment.
+- Cloud deployment (AWS/GCP) for industrial production line use.
 
 ---
 
@@ -195,9 +403,3 @@ I want to be upfront about what this system can and can't do:
 
 - GitHub: [AradhyaStuti](https://github.com/AradhyaStuti)
 - LinkedIn: [aradhya-stuti-9b2b9529a](https://www.linkedin.com/in/aradhya-stuti-9b2b9529a)
-
----
-
-<p align="center">
-  Built with lots of coffee and frustration. If you found this useful, a star would make my day.
-</p>
