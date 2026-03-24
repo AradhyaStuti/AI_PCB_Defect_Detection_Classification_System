@@ -12,6 +12,8 @@
   <img src="https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white" alt="Python"/>
   <img src="https://img.shields.io/badge/PyTorch-2.0%2B-EE4C2C?logo=pytorch&logoColor=white" alt="PyTorch"/>
   <img src="https://img.shields.io/badge/Streamlit-1.30%2B-FF4B4B?logo=streamlit&logoColor=white" alt="Streamlit"/>
+  <img src="https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI"/>
+  <img src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker"/>
   <img src="https://img.shields.io/badge/Model-ResNet50-green" alt="ResNet50"/>
   <img src="https://img.shields.io/badge/Dataset-DeepPCB-orange" alt="DeepPCB"/>
 </p>
@@ -25,6 +27,7 @@ The objective is to develop an end-to-end defect detection and classification sy
 - Detects and localizes defects using comparison with defect-free templates.
 - Classifies detected defects into predefined categories using a trained CNN (ResNet-50).
 - Provides a user-friendly frontend for image upload and viewing labeled outputs.
+- Exposes a REST API for programmatic integration with other services.
 - Integrates a modular backend pipeline for processing images and returning annotated results.
 - Exports annotated outputs and detection logs for documentation and analysis.
 
@@ -39,8 +42,12 @@ The objective is to develop an end-to-end defect detection and classification sy
 - Input validation with pixel budget limits and file size guards.
 - Non-Maximum Suppression (NMS) to eliminate overlapping detections.
 - Web-based frontend (Streamlit) for uploading images and viewing predictions in real-time.
+- REST API (FastAPI) with `/health` and `/detect` endpoints — structured JSON responses with inference time.
+- Environment-based configuration — all settings overridable via `PCB_*` environment variables.
+- Persistent rotating log files (10 MB × 5 files) in addition to console output.
+- Docker support — Dockerfile + docker-compose for reproducible containerised deployments.
 - Annotated image export and CSV-style log generation for analysis.
-- Full test suite (15 unit tests) with CI/CD pipeline via GitHub Actions.
+- Full test suite (21 unit tests) with CI/CD pipeline via GitHub Actions (4 jobs).
 - Production-grade code — type hints, structured logging, lazy model loading, zero hardcoded paths.
 
 ---
@@ -53,10 +60,12 @@ The objective is to develop an end-to-end defect detection and classification sy
 | Image Comparison | scikit-image (SSIM), ImageHash (pHash) |
 | Image Processing | Pillow, NumPy |
 | Frontend | Streamlit |
-| Backend | Python, Modular Inference Pipeline |
+| REST API | FastAPI, uvicorn, Pydantic |
+| Configuration | python-dotenv, environment variables |
+| Containerisation | Docker, Docker Compose |
 | Visualization | Matplotlib (colormaps) |
-| Testing | pytest (15 tests) |
-| CI/CD | GitHub Actions (lint + typecheck + test) |
+| Testing | pytest (21 tests), httpx (API test client) |
+| CI/CD | GitHub Actions (lint + typecheck + test + docker) |
 | Code Quality | ruff (linter), mypy (type checker) |
 | Evaluation | Accuracy, Loss Curves, Confusion Matrix |
 
@@ -165,37 +174,51 @@ AI PCB Defect Detection and Classification System
 │       ├── Detection Results Table
 │       └── Download Outputs (PNG + TXT Log)
 │
-├── 7. Backend Integration
+├── 7. REST API
+│   ├── GET  /health  — liveness check (returns status + timestamp)
+│   └── POST /detect  — upload image, receive JSON detections
+│       ├── defect_count
+│       ├── inference_time_ms
+│       ├── detections (label, confidence, box)
+│       └── timestamp
+│
+├── 8. Backend & Configuration
 │   ├── PCBDefectPipeline Class
 │   │   ├── Lazy Model Loading
-│   │   ├── Cached via @st.cache_resource
-│   │   ├── Image Processing Module
+│   │   ├── Cached via @st.cache_resource (Streamlit)
 │   │   ├── Batch Inference Module
 │   │   └── Annotation Module
+│   ├── config.py — Environment-based Settings
+│   │   ├── PCB_MODEL_PATH, PCB_GOLDEN_DIR, PCB_LOG_DIR
+│   │   ├── PCB_API_HOST, PCB_API_PORT, PCB_MAX_UPLOAD_MB
+│   │   └── PCB_LOG_LEVEL
 │   └── Logging & Export
-│       ├── Structured Logging (Python logging)
-│       ├── Prediction Logs (CSV format)
-│       └── Annotated Image Export
+│       ├── Rotating File Logs (10 MB × 5 files)
+│       ├── Console Logging
+│       └── Annotated Image & CSV Log Export
 │
-├── 8. Testing & CI/CD
-│   ├── Unit Tests (15 tests, pytest)
+├── 9. Testing & CI/CD
+│   ├── Unit Tests (21 tests, pytest)
 │   │   ├── Input Validation Tests
 │   │   ├── Golden Database Tests
 │   │   ├── Batch Classification Tests
 │   │   ├── Detection Pipeline Tests
 │   │   ├── Visualization Tests
-│   │   └── End-to-End Pipeline Tests
-│   └── GitHub Actions CI
+│   │   ├── End-to-End Pipeline Tests
+│   │   └── REST API Endpoint Tests (health, 400/413/422/200)
+│   └── GitHub Actions CI (4 jobs)
 │       ├── Lint (ruff)
 │       ├── Type Check (mypy)
-│       └── Test (pytest)
+│       ├── Test (pytest)
+│       └── Docker Build (docker build)
 │
-└── 9. Final Output
+└── 10. Deployment
+    ├── Streamlit UI  → docker-compose up (port 8501)
+    ├── REST API      → docker-compose up (port 8000)
     ├── Annotated PCB Image
     ├── Defect Class Labels
     ├── Confidence Scores
-    ├── Detection Log (CSV)
-    └── Deployment-Ready Application
+    └── Detection Log (CSV)
 ```
 
 ---
@@ -264,17 +287,23 @@ AI PCB Defect Detection and Classification System
 ### Milestone 4: Testing, Code Quality & CI/CD
 
 **Module 7: Unit Testing**
-- Wrote 15 unit tests covering validation, golden DB, batch classification, detection, visualization, and end-to-end pipeline.
+- Wrote 21 unit tests covering validation, golden DB, batch classification, detection, visualization, end-to-end pipeline, and REST API endpoints.
 - Tests use mock models — no `.pth` file needed to run them.
 - All tests pass in under 2 seconds.
 
 **Module 8: Code Quality & CI/CD**
 - Configured ruff linter with strict rules (bugbear, simplify, type-checking).
 - Added mypy type checking configuration.
-- Set up GitHub Actions CI with 3 parallel jobs: lint, typecheck, test.
+- Set up GitHub Actions CI with 4 parallel jobs: lint, typecheck, test, **docker build**.
 - Zero lint warnings, full type annotations across codebase.
 
-**Module 9: Documentation & Finalization**
+**Module 9: REST API, Configuration & Containerisation**
+- Built FastAPI REST API (`api.py`) with `/health` and `/detect` endpoints.
+- Added `config.py` for centralised, environment-variable-driven configuration.
+- Added persistent rotating file logging (`logs/pcb_detection.log`).
+- Created `Dockerfile` and `docker-compose.yml` for reproducible deployments.
+
+**Module 10: Documentation & Finalization**
 - Comprehensive README with project structure, setup instructions, and results.
 - Production-grade codebase with no hardcoded paths, proper error handling, and structured logging.
 
@@ -285,21 +314,30 @@ AI PCB Defect Detection and Classification System
 ```
 AI_PCB_Defect_Detection_Classification_System/
 ├── app.py                  # Streamlit web application
+├── api.py                  # FastAPI REST API (/health, /detect)
 ├── inference_new.py        # Detection pipeline (PCBDefectPipeline class)
+├── config.py               # Centralised config — env-var overrides for all settings
 ├── requirements.txt        # Python dependencies
 ├── pyproject.toml          # Project config (ruff, mypy, pytest)
+├── Dockerfile              # Container image definition
+├── docker-compose.yml      # Orchestrates API + Streamlit UI services
+├── .dockerignore           # Files excluded from Docker build context
+├── .env.example            # Template for PCB_* environment variables
 ├── model/
 │   └── best_resnet50_pcb_defects_50epochs.pth
 ├── PCB_USED/               # Golden reference images
 │   ├── 01.JPG
 │   ├── 04.JPG
 │   └── ...
+├── logs/                   # Rotating log files (auto-created on first run)
+│   └── pcb_detection.log
 ├── tests/
 │   ├── conftest.py         # Shared test fixtures & mock model
-│   └── test_inference.py   # 15 unit tests
+│   ├── test_inference.py   # 15 pipeline unit tests
+│   └── test_api.py         # 6 REST API endpoint tests
 ├── .github/
 │   └── workflows/
-│       └── ci.yml          # GitHub Actions CI pipeline
+│       └── ci.yml          # GitHub Actions CI (lint, typecheck, test, docker)
 └── image/
     └── README/             # Images used in this README
 ```
@@ -307,6 +345,8 @@ AI_PCB_Defect_Detection_Classification_System/
 ---
 
 ## Installation
+
+### Option A — Local (pip)
 
 **1. Clone the repository**
 ```bash
@@ -330,14 +370,41 @@ pip install -r requirements.txt
 
 Place `best_resnet50_pcb_defects_50epochs.pth` inside the `model/` folder.
 
+**5. (Optional) Configure environment**
+```bash
+cp .env.example .env
+# Edit .env to override any PCB_* settings
+```
+
+---
+
+### Option B — Docker
+
+**1. Build and start both services**
+```bash
+docker-compose up --build
+```
+
+| Service | URL |
+|---|---|
+| REST API | `http://localhost:8000` |
+| Streamlit UI | `http://localhost:8501` |
+| API Docs (Swagger) | `http://localhost:8000/docs` |
+
+**2. Run API only**
+```bash
+docker build -t pcb-defect-detection .
+docker run -p 8000:8000 -v ./model:/app/model:ro pcb-defect-detection
+```
+
 ---
 
 ## How to Use
 
+### Streamlit UI
 ```bash
 streamlit run app.py
 ```
-
 1. Open `http://localhost:8501` in your browser.
 2. Upload a PCB image (JPG/PNG, max 10MB).
 3. Click **Run detection**.
@@ -346,14 +413,64 @@ streamlit run app.py
 
 ---
 
+### REST API
+```bash
+uvicorn api:app --reload
+```
+
+**Check liveness:**
+```bash
+curl http://localhost:8000/health
+# {"status":"ok","timestamp":"2026-03-24T10:00:00+00:00"}
+```
+
+**Detect defects:**
+```bash
+curl -X POST http://localhost:8000/detect \
+  -F "file=@your_pcb_image.jpg"
+```
+
+**Example response:**
+```json
+{
+  "defect_count": 2,
+  "inference_time_ms": 312.5,
+  "detections": [
+    {"label": "spur", "confidence": 0.9412, "box": [64, 128, 192, 256]},
+    {"label": "open_circuit", "confidence": 0.8871, "box": [320, 64, 448, 192]}
+  ],
+  "timestamp": "2026-03-24T10:00:01+00:00"
+}
+```
+
+Interactive API docs (Swagger UI) available at `http://localhost:8000/docs`.
+
+---
+
 ## How to Run Tests
 
 ```bash
-pip install pytest
+pip install pytest httpx
 pytest tests/ -v
 ```
 
-All 15 tests pass in under 2 seconds. No model file needed — tests use mock models.
+All 21 tests pass in under 2 seconds. No model file needed — tests use mock models.
+
+---
+
+## Configuration Reference
+
+All settings can be overridden by setting environment variables or adding them to a `.env` file:
+
+| Variable | Default | Description |
+|---|---|---|
+| `PCB_MODEL_PATH` | `model/best_resnet50_pcb_defects_50epochs.pth` | Path to model weights |
+| `PCB_GOLDEN_DIR` | `PCB_USED/` | Directory of golden reference images |
+| `PCB_LOG_DIR` | `logs/` | Directory for rotating log files |
+| `PCB_API_HOST` | `0.0.0.0` | API bind address |
+| `PCB_API_PORT` | `8000` | API port |
+| `PCB_MAX_UPLOAD_MB` | `10` | Maximum upload file size (MB) |
+| `PCB_LOG_LEVEL` | `INFO` | Logging level (DEBUG/INFO/WARNING/ERROR) |
 
 ---
 
@@ -381,8 +498,10 @@ Input Image ──> pHash Match ──> SSIM Comparison ──> Batch CNN Classi
 - **`@st.cache_resource`** — Pipeline singleton survives Streamlit reruns. Model doesn't reload on every button click.
 - **Batch Inference** — Patches classified in batches of 32 instead of one-by-one. Major speed improvement on GPU.
 - **Input Validation** — 16MP pixel budget and 10MB upload limit prevent OOM crashes.
-- **Relative Paths** — All paths are relative to the script directory. No hardcoded absolute paths.
-- **Structured Logging** — Python `logging` module instead of print statements.
+- **Relative Paths via `config.py`** — All paths default to project-relative locations and are overridable via environment variables. No hardcoded absolute paths anywhere.
+- **Persistent Rotating Logs** — `configure_logging()` sets up both console and file handlers. Log files rotate at 10 MB, keeping the last 5.
+- **REST API Layer** — `api.py` provides a clean HTTP interface over the same `PCBDefectPipeline`, decoupling the UI from the inference logic.
+- **Environment-Based Config** — `config.py` reads all settings from `PCB_*` env vars with sensible defaults. Supports `.env` files via python-dotenv.
 
 ---
 
@@ -416,12 +535,12 @@ The original `inference_new.py` was a flat script with everything running at mod
 
 | What I Changed | Before (Internship Version) | After (My Improvement) |
 |---|---|---|
-| **File paths** | Hardcoded `C:\Users\User\...` absolute paths | Relative paths using `Path(__file__).parent` — works on any machine |
+| **File paths** | Hardcoded `C:\Users\User\...` absolute paths | Relative paths via `config.py` env vars — works on any machine |
 | **Model loading** | Loaded at import time, crashed if path was wrong | Lazy-loaded inside the class, loads only when you actually run inference |
 | **Inference speed** | Classified one patch at a time (slow) | Batch inference — 32 patches in one forward pass, way faster on GPU |
 | **GPU memory** | No `torch.no_grad()`, gradients accumulating for nothing | Proper `no_grad` context, clean memory usage |
 | **Error handling** | Bare `except:` catching every error silently | Specific `OSError` catches, custom `ImageTooLargeError` exception |
-| **Logging** | `print()` with emojis everywhere | Python `logging` module with proper timestamps and levels |
+| **Logging** | `print()` with emojis everywhere | Python `logging` module — console + rotating file output |
 | **SSIM computation** | `ssim(full=True)` — allocating a diff image nobody used | `full=False`, saves memory on every window comparison |
 | **Matplotlib** | Deprecated `plt.cm.get_cmap()` | Updated to `plt.colormaps["hsv"]` |
 | **Softmax** | Computed twice per patch in some code paths | Single forward pass, single softmax — no wasted computation |
@@ -430,10 +549,35 @@ The original `inference_new.py` was a flat script with everything running at mod
 | **Streamlit caching** | Model reloaded from disk on every button click | `@st.cache_resource` keeps the pipeline alive across reruns |
 | **Datetime** | Naive `datetime.now()` | Timezone-aware `datetime.now(tz=timezone.utc)` |
 
+### Added a REST API
+
+Built `api.py` using FastAPI:
+
+- `GET /health` — liveness check, returns status and timestamp.
+- `POST /detect` — accepts a PCB image upload, returns structured JSON with defect count, inference time in milliseconds, and per-detection bounding boxes, labels, and confidence scores.
+- Pydantic response schemas for automatic validation and OpenAPI documentation at `/docs`.
+- Proper HTTP status codes: 400 (bad image), 413 (oversized), 422 (validation error), 500 (inference failure).
+
+### Added environment-based configuration
+
+Built `config.py` to centralise all settings:
+
+- Every path, port, file size limit, and log level is readable from a `PCB_*` environment variable.
+- Supports `.env` files via python-dotenv (optional dependency).
+- `configure_logging()` sets up both a console handler and a rotating file handler — logs persist to `logs/pcb_detection.log` and rotate at 10 MB, keeping 5 backups.
+- Both `app.py` and `api.py` call `configure_logging()` at startup. No more stdout-only logs that disappear.
+
+### Added Docker support
+
+- `Dockerfile` — single-stage build from `python:3.11-slim`, installs dependencies with layer caching, exposes both API (8000) and Streamlit (8501) ports.
+- `docker-compose.yml` — orchestrates both services. UI depends on API health check passing before starting. Model and golden reference directories are mounted read-only.
+- `.dockerignore` — excludes git history, notebooks, cache dirs, and `.env` to keep the image lean.
+
 ### Added a full test suite
 
-I wrote 15 unit tests from scratch using pytest. The tests use mock models so you don't need the actual `.pth` file to run them. They cover:
+Wrote 21 unit tests from scratch using pytest. The tests use mock models so you don't need the actual `.pth` file to run them:
 
+**Pipeline tests (15):**
 - Input validation (accepts normal images, rejects too small/too large)
 - Golden database (loads images, skips non-images, handles empty directory)
 - Batch classification (single patch and batch of 4)
@@ -441,13 +585,17 @@ I wrote 15 unit tests from scratch using pytest. The tests use mock models so yo
 - Visualization (returns a copy, actually draws boxes)
 - Full pipeline end-to-end (returns correct types, validates input)
 
-All 15 pass in under 2 seconds.
+**API tests (6):**
+- Health endpoint (200 OK, `status: ok`, timestamp present)
+- Detect endpoint (422 missing file, 413 oversized, 400 bad image, 422 small image, 200 valid response, defect count matches detections list)
+
+All 21 pass in under 2 seconds.
 
 ### Set up CI/CD and code quality tools
 
 - Created `pyproject.toml` with ruff linter config (strict rules — bugbear, simplify, type-checking imports).
-- Added mypy type checking configuration.
-- Built a GitHub Actions CI pipeline with 3 parallel jobs: **lint**, **typecheck**, **test**.
+- Added mypy type checking configuration with `disallow_untyped_defs`.
+- Built a GitHub Actions CI pipeline with **4 parallel jobs**: lint, typecheck, test, **docker build**.
 - Fixed every single lint warning — the codebase is completely clean.
 
 ### Cleaned up the Streamlit app
@@ -466,8 +614,9 @@ All 15 pass in under 2 seconds.
 - Multi-scale sliding window for defects of varying sizes.
 - Batch processing of multiple PCB images.
 - Real-time video stream defect detection.
-- Docker containerization for easy deployment.
+- Prometheus metrics endpoint for inference time and error rate monitoring.
 - Cloud deployment (AWS/GCP) for industrial production line use.
+- Kubernetes manifests for horizontal scaling.
 
 ---
 

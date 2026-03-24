@@ -9,15 +9,11 @@ from datetime import datetime, timezone
 import streamlit as st
 from PIL import Image
 
+from config import MAX_UPLOAD_MB, configure_logging
 from inference_new import ImageTooLargeError, PCBDefectPipeline
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+configure_logging()
 logger = logging.getLogger(__name__)
-
-MAX_UPLOAD_MB = 10
 
 
 # ---------------------------------------------------------------------------

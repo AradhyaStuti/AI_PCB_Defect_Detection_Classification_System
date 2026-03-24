@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 from PIL import Image
@@ -41,7 +43,7 @@ class TestGoldenDatabase:
         assert mock_pipeline.find_best_match(Image.new("RGB", (256, 256))) is None
 
     def test_loads_images_from_dir(
-        self, tmp_path: object, mock_pipeline: PCBDefectPipeline
+        self, tmp_path: Path, mock_pipeline: PCBDefectPipeline
     ) -> None:
         golden_dir = mock_pipeline._golden_dir
         golden_dir.mkdir(parents=True, exist_ok=True)

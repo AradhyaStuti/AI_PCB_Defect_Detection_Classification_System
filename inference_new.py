@@ -22,6 +22,8 @@ from skimage.metrics import structural_similarity as ssim
 from torchvision import models, transforms
 from torchvision.ops import nms
 
+from config import GOLDEN_DIR as GOLDEN_IMAGES_DIR, MODEL_PATH
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -43,11 +45,6 @@ class GoldenEntry(TypedDict):
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-
-_BASE_DIR = Path(__file__).resolve().parent
-
-MODEL_PATH = _BASE_DIR / "model" / "best_resnet50_pcb_defects_50epochs.pth"
-GOLDEN_IMAGES_DIR = _BASE_DIR / "PCB_USED"
 
 DEFAULT_CLASS_NAMES: list[str] = [
     "missing_hole",
