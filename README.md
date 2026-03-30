@@ -47,7 +47,7 @@ The objective is to develop an end-to-end defect detection and classification sy
 - Persistent rotating log files (10 MB × 5 files) in addition to console output.
 - Docker support — Dockerfile + docker-compose for reproducible containerised deployments.
 - Annotated image export and CSV-style log generation for analysis.
-- Full test suite (21 unit tests) with CI/CD pipeline via GitHub Actions (4 jobs).
+- Full test suite (24 unit tests) with CI/CD pipeline via GitHub Actions (4 jobs).
 - Production-grade code — type hints, structured logging, lazy model loading, zero hardcoded paths.
 
 ---
@@ -64,7 +64,7 @@ The objective is to develop an end-to-end defect detection and classification sy
 | Configuration | python-dotenv, environment variables |
 | Containerisation | Docker, Docker Compose |
 | Visualization | Matplotlib (colormaps) |
-| Testing | pytest (21 tests), httpx (API test client) |
+| Testing | pytest (24 tests), httpx (API test client) |
 | CI/CD | GitHub Actions (lint + typecheck + test + docker) |
 | Code Quality | ruff (linter), mypy (type checker) |
 | Evaluation | Accuracy, Loss Curves, Confusion Matrix |
@@ -198,14 +198,14 @@ AI PCB Defect Detection and Classification System
 │       └── Annotated Image & CSV Log Export
 │
 ├── 9. Testing & CI/CD
-│   ├── Unit Tests (21 tests, pytest)
+│   ├── Unit Tests (24 tests, pytest)
 │   │   ├── Input Validation Tests
 │   │   ├── Golden Database Tests
 │   │   ├── Batch Classification Tests
 │   │   ├── Detection Pipeline Tests
 │   │   ├── Visualization Tests
 │   │   ├── End-to-End Pipeline Tests
-│   │   └── REST API Endpoint Tests (health, 400/413/422/200)
+│   │   └── REST API Endpoint Tests (health, 400/413/422/200, count match)
 │   └── GitHub Actions CI (4 jobs)
 │       ├── Lint (ruff)
 │       ├── Type Check (mypy)
@@ -287,9 +287,8 @@ AI PCB Defect Detection and Classification System
 ### Milestone 4: Testing, Code Quality & CI/CD
 
 **Module 7: Unit Testing**
-- Wrote 21 unit tests covering validation, golden DB, batch classification, detection, visualization, end-to-end pipeline, and REST API endpoints.
+- Wrote 24 unit tests covering validation, golden DB, batch classification, detection, visualization, end-to-end pipeline, and REST API endpoints.
 - Tests use mock models — no `.pth` file needed to run them.
-- All tests pass in under 2 seconds.
 
 **Module 8: Code Quality & CI/CD**
 - Configured ruff linter with strict rules (bugbear, simplify, type-checking).
@@ -334,7 +333,7 @@ AI_PCB_Defect_Detection_Classification_System/
 ├── tests/
 │   ├── conftest.py         # Shared test fixtures & mock model
 │   ├── test_inference.py   # 15 pipeline unit tests
-│   └── test_api.py         # 6 REST API endpoint tests
+│   └── test_api.py         # 9 REST API endpoint tests
 ├── .github/
 │   └── workflows/
 │       └── ci.yml          # GitHub Actions CI (lint, typecheck, test, docker)
@@ -454,7 +453,7 @@ pip install pytest httpx
 pytest tests/ -v
 ```
 
-All 21 tests pass in under 2 seconds. No model file needed — tests use mock models.
+All 24 tests pass. No model file needed — tests use mock models.
 
 ---
 
@@ -575,7 +574,7 @@ Built `config.py` to centralise all settings:
 
 ### Added a full test suite
 
-Wrote 21 unit tests from scratch using pytest. The tests use mock models so you don't need the actual `.pth` file to run them:
+Wrote 24 unit tests from scratch using pytest. The tests use mock models so you don't need the actual `.pth` file to run them:
 
 **Pipeline tests (15):**
 - Input validation (accepts normal images, rejects too small/too large)
@@ -585,11 +584,11 @@ Wrote 21 unit tests from scratch using pytest. The tests use mock models so you 
 - Visualization (returns a copy, actually draws boxes)
 - Full pipeline end-to-end (returns correct types, validates input)
 
-**API tests (6):**
+**API tests (9):**
 - Health endpoint (200 OK, `status: ok`, timestamp present)
 - Detect endpoint (422 missing file, 413 oversized, 400 bad image, 422 small image, 200 valid response, defect count matches detections list)
 
-All 21 pass in under 2 seconds.
+All 24 pass.
 
 ### Set up CI/CD and code quality tools
 
