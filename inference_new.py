@@ -1,8 +1,7 @@
-"""PCB differential defect detection pipeline.
+"""PCB defect detection pipeline.
 
-Compares an input PCB image against a golden reference database using
-structural similarity, then classifies anomalous regions with a
-ResNet-50 classifier trained on DeepPCB defect categories.
+Compares an input image against a golden reference using SSIM, then
+classifies the patches that differ with a ResNet-50 trained on DeepPCB.
 """
 
 from __future__ import annotations
@@ -26,9 +25,6 @@ from config import GOLDEN_DIR as GOLDEN_IMAGES_DIR, MODEL_PATH
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Type definitions
-# ---------------------------------------------------------------------------
 
 class Detection(TypedDict):
     box: list[int]
@@ -41,10 +37,6 @@ class GoldenEntry(TypedDict):
     image: Image.Image
     hash: imagehash.ImageHash
 
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
 
 DEFAULT_CLASS_NAMES: list[str] = [
     "missing_hole",
@@ -61,7 +53,9 @@ SIMILARITY_THRESHOLD = 0.95
 CLASSIFIER_CONFIDENCE_THRESHOLD = 0.80
 NMS_IOU_THRESHOLD = 0.2
 BATCH_SIZE = 32
-MAX_IMAGE_PIXELS = 4096 * 4096  # ~16 MP safety limit
+
+# Cap at ~16 MP so a huge upload can't blow up memory.
+MAX_IMAGE_PIXELS = 4096 * 4096
 
 INFERENCE_TRANSFORM = transforms.Compose([
     transforms.Resize((224, 224)),
@@ -70,38 +64,27 @@ INFERENCE_TRANSFORM = transforms.Compose([
 ])
 
 
-# ---------------------------------------------------------------------------
-# Validation
-# ---------------------------------------------------------------------------
-
 class ImageTooLargeError(ValueError):
-    """Raised when the input image exceeds the pixel budget."""
+    pass
 
 
 def validate_image(image: Image.Image) -> None:
-    """Reject images that would cause excessive memory use."""
     w, h = image.size
     if w * h > MAX_IMAGE_PIXELS:
         raise ImageTooLargeError(
-            f"Image is {w}x{h} ({w * h:,} pixels). "
-            f"Maximum allowed is {MAX_IMAGE_PIXELS:,} pixels."
+            f"Image is {w}x{h} ({w * h:,} pixels), max is {MAX_IMAGE_PIXELS:,}."
         )
     if w < WINDOW_SIZE or h < WINDOW_SIZE:
         raise ValueError(
-            f"Image is {w}x{h}, smaller than the {WINDOW_SIZE}x{WINDOW_SIZE} "
-            f"sliding window. Provide a larger image."
+            f"Image is {w}x{h}, smaller than the {WINDOW_SIZE}x{WINDOW_SIZE} window."
         )
 
 
-# ---------------------------------------------------------------------------
-# Pipeline (lazy-loaded singleton)
-# ---------------------------------------------------------------------------
-
 class PCBDefectPipeline:
-    """Encapsulates model, golden DB, and inference logic.
+    """Runs the full detect-and-classify flow on a single image.
 
-    The heavy resources (model weights, golden image database) are loaded
-    lazily on first use so that importing this module is side-effect-free.
+    Model weights and golden images are loaded the first time they're needed
+    so `import inference_new` stays cheap.
     """
 
     def __init__(
@@ -116,8 +99,6 @@ class PCBDefectPipeline:
         self._model: torch.nn.Module | None = None
         self._class_names: list[str] | None = None
         self._golden_db: list[GoldenEntry] | None = None
-
-    # -- Lazy properties -----------------------------------------------------
 
     @property
     def device(self) -> torch.device:
@@ -146,8 +127,6 @@ class PCBDefectPipeline:
             self._golden_db = self._build_golden_database()
         return self._golden_db
 
-    # -- Initialization helpers ----------------------------------------------
-
     def _load_model(self) -> None:
         logger.info("Loading model from %s", self._model_path)
         checkpoint = torch.load(
@@ -155,6 +134,8 @@ class PCBDefectPipeline:
         )
 
         class_names = checkpoint.get("class_names", DEFAULT_CLASS_NAMES.copy())
+        # The training checkpoint sometimes carries a "normal" class which we
+        # don't want to predict at inference time.
         if "normal" in class_names:
             class_names.remove("normal")
         self._class_names = class_names
@@ -191,8 +172,6 @@ class PCBDefectPipeline:
         logger.info("Loaded %d golden reference images", len(db))
         return db
 
-    # -- Core inference ------------------------------------------------------
-
     def find_best_match(self, input_image: Image.Image) -> Image.Image | None:
         if not self.golden_db:
             return None
@@ -204,7 +183,6 @@ class PCBDefectPipeline:
         self,
         patches: list[Image.Image],
     ) -> list[tuple[int, float]]:
-        """Classify a batch of patches in a single forward pass."""
         tensors = torch.stack([INFERENCE_TRANSFORM(p) for p in patches]).to(self.device)
         with torch.no_grad():
             logits = self.model(tensors)
@@ -222,7 +200,6 @@ class PCBDefectPipeline:
 
         img_w, img_h = input_image.size
 
-        # Phase 1: collect anomalous patches via SSIM
         candidate_patches: list[Image.Image] = []
         candidate_boxes: list[list[int]] = []
 
@@ -243,9 +220,7 @@ class PCBDefectPipeline:
         if not candidate_patches:
             return []
 
-        # Phase 2: batch-classify all candidate patches
         detections: list[Detection] = []
-
         for batch_start in range(0, len(candidate_patches), BATCH_SIZE):
             batch_end = min(batch_start + BATCH_SIZE, len(candidate_patches))
             batch_patches = candidate_patches[batch_start:batch_end]
@@ -264,13 +239,10 @@ class PCBDefectPipeline:
         if not detections:
             return []
 
-        # Phase 3: NMS
         boxes_t = torch.tensor([d["box"] for d in detections], dtype=torch.float32)
         scores_t = torch.tensor([d["confidence"] for d in detections], dtype=torch.float32)
         keep = nms(boxes_t, scores_t, iou_threshold=NMS_IOU_THRESHOLD)
         return [detections[i] for i in keep.tolist()]
-
-    # -- Visualization -------------------------------------------------------
 
     @staticmethod
     def draw_detections(
@@ -312,38 +284,23 @@ class PCBDefectPipeline:
 
         return canvas
 
-    # -- Public entry point --------------------------------------------------
-
     def run(self, input_image: Image.Image) -> tuple[Image.Image, list[Detection]]:
-        """Run the full detection pipeline on a single PCB image.
-
-        Returns:
-            A tuple of (annotated image, list of detections).
-
-        Raises:
-            ImageTooLargeError: If the image exceeds MAX_IMAGE_PIXELS.
-            ValueError: If the image is smaller than the sliding window.
-        """
         validate_image(input_image)
         t0 = time.perf_counter()
 
         golden_ref = self.find_best_match(input_image)
         if golden_ref is None:
-            logger.warning("No golden reference found — returning input unchanged")
+            logger.warning("No golden reference available, returning input unchanged")
             return input_image, []
 
         anomalies = self.detect_anomalies(input_image, golden_ref)
         result_image = self.draw_detections(input_image, anomalies)
 
         elapsed = time.perf_counter() - t0
-        logger.info("Detection complete: %d defects in %.2fs", len(anomalies), elapsed)
+        logger.info("Detection done: %d defects in %.2fs", len(anomalies), elapsed)
 
         return result_image, anomalies
 
-
-# ---------------------------------------------------------------------------
-# Module-level singleton & backward-compatible API
-# ---------------------------------------------------------------------------
 
 _pipeline: PCBDefectPipeline | None = None
 
@@ -358,5 +315,4 @@ def _get_pipeline() -> PCBDefectPipeline:
 def run_inference_on_pil(
     input_image: Image.Image,
 ) -> tuple[Image.Image, list[Detection]]:
-    """Backward-compatible entry point used by app.py."""
     return _get_pipeline().run(input_image)

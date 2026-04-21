@@ -1,7 +1,6 @@
-"""Centralized configuration — all settings can be overridden via environment variables.
+"""Config for paths, API, and logging. Everything is overridable via env vars.
 
-Install ``python-dotenv`` to load values from a ``.env`` file automatically;
-otherwise, standard process environment variables are used directly.
+If python-dotenv is installed, values are also loaded from a local .env file.
 """
 
 from __future__ import annotations
@@ -13,16 +12,11 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
-
     load_dotenv()
 except ImportError:
     pass
 
 _BASE_DIR = Path(__file__).resolve().parent
-
-# ---------------------------------------------------------------------------
-# Path settings
-# ---------------------------------------------------------------------------
 
 MODEL_PATH: Path = Path(
     os.environ.get(
@@ -37,28 +31,16 @@ GOLDEN_DIR: Path = Path(
 
 LOG_DIR: Path = Path(os.environ.get("PCB_LOG_DIR", str(_BASE_DIR / "logs")))
 
-# ---------------------------------------------------------------------------
-# API settings
-# ---------------------------------------------------------------------------
-
 API_HOST: str = os.environ.get("PCB_API_HOST", "0.0.0.0")
 API_PORT: int = int(os.environ.get("PCB_API_PORT", "8000"))
 MAX_UPLOAD_MB: int = int(os.environ.get("PCB_MAX_UPLOAD_MB", "10"))
-
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
 
 LOG_LEVEL: str = os.environ.get("PCB_LOG_LEVEL", "INFO")
 
 
 def configure_logging() -> None:
-    """Configure console + rotating-file logging.
-
-    Idempotent: does nothing if the root logger already has handlers.
-    Creates the log directory on first call.
-    """
     root = logging.getLogger()
+    # No-op if logging was already set up (e.g. another module called us first).
     if root.handlers:
         return
 
@@ -71,7 +53,7 @@ def configure_logging() -> None:
 
     file_handler = logging.handlers.RotatingFileHandler(
         LOG_DIR / "pcb_detection.log",
-        maxBytes=10 * 1024 * 1024,  # 10 MB per file
+        maxBytes=10 * 1024 * 1024,
         backupCount=5,
     )
     file_handler.setFormatter(fmt)

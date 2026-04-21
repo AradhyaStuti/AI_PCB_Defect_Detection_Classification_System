@@ -1,7 +1,7 @@
 [project]
 name = "pcb-defect-detection"
 version = "1.0.0"
-description = "PCB differential defect detection and classification using ResNet-50"
+description = "PCB defect detection and classification with ResNet-50 and SSIM."
 requires-python = ">=3.10"
 dependencies = [
     "torch>=2.0",
@@ -31,16 +31,7 @@ target-version = "py310"
 line-length = 100
 
 [tool.ruff.lint]
-select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "UP",  # pyupgrade
-    "B",   # flake8-bugbear
-    "SIM", # flake8-simplify
-    "TCH", # flake8-type-checking
-]
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "TCH"]
 
 [tool.mypy]
 python_version = "3.10"

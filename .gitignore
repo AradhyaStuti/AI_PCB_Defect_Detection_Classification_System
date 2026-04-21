@@ -5,13 +5,25 @@ __pycache__/
 dist/
 build/
 
-# Virtual environments
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual envs
 my_virtual_env/
 .venv/
 venv/
 
-# Model weights (large binary — track with Git LFS or download separately)
+# Model weights (large binaries)
 model/*.pth
+
+# Logs
+logs/
+*.log
+
+# Env files
+.env
 
 # IDE
 .vscode/

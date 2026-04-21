@@ -1,11 +1,7 @@
-"""FastAPI REST API for PCB defect detection and classification.
+"""FastAPI layer around the PCB defect detection pipeline.
 
-Endpoints:
-  GET  /health   — liveness check
-  POST /detect   — upload a PCB image, receive structured defect detections
-
-Run locally:
-  uvicorn api:app --reload
+Run with:
+    uvicorn api:app --reload
 """
 
 from __future__ import annotations
@@ -28,10 +24,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="PCB Defect Detection API",
-    description=(
-        "REST API for PCB differential defect detection and classification "
-        "using a ResNet-50 classifier with SSIM-based anomaly localisation."
-    ),
+    description="Upload a PCB image, get back defect boxes and labels.",
     version="1.0.0",
 )
 
@@ -43,11 +36,6 @@ def _get_pipeline() -> PCBDefectPipeline:
     if _pipeline is None:
         _pipeline = PCBDefectPipeline()
     return _pipeline
-
-
-# ---------------------------------------------------------------------------
-# Response schemas
-# ---------------------------------------------------------------------------
 
 
 class DetectionResult(BaseModel):
@@ -63,40 +51,25 @@ class InferenceResponse(BaseModel):
     timestamp: str
 
 
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
-
-
-@app.get("/health", tags=["ops"], summary="Liveness check")
+@app.get("/health", tags=["ops"])
 def health() -> dict[str, str]:
-    """Returns ``200 OK`` when the service is alive and ready."""
     return {"status": "ok", "timestamp": datetime.now(tz=timezone.utc).isoformat()}
 
 
-@app.post(
-    "/detect",
-    response_model=InferenceResponse,
-    tags=["inference"],
-    summary="Detect defects in a PCB image",
-)
+@app.post("/detect", response_model=InferenceResponse, tags=["inference"])
 async def detect(file: UploadFile = File(...)) -> InferenceResponse:
-    """Upload a PCB image (JPEG/PNG) and receive structured defect detections.
-
-    Returns bounding boxes, defect labels, confidence scores, and inference time.
-    """
     contents = await file.read()
     size_mb = len(contents) / (1024 * 1024)
     if size_mb > MAX_UPLOAD_MB:
         raise HTTPException(
             status_code=413,
-            detail=f"File is {size_mb:.1f} MB — maximum allowed is {MAX_UPLOAD_MB} MB.",
+            detail=f"File is {size_mb:.1f} MB, max is {MAX_UPLOAD_MB} MB.",
         )
 
     try:
         image = Image.open(io.BytesIO(contents)).convert("RGB")
     except Exception as exc:
-        raise HTTPException(status_code=400, detail="Cannot decode image.") from exc
+        raise HTTPException(status_code=400, detail="Could not decode image.") from exc
 
     t0 = time.perf_counter()
     try:
@@ -105,7 +78,7 @@ async def detect(file: UploadFile = File(...)) -> InferenceResponse:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Inference failed for file: %s", file.filename)
-        raise HTTPException(status_code=500, detail="Inference error — check server logs.") from exc
+        raise HTTPException(status_code=500, detail="Inference error, see server logs.") from exc
 
     elapsed_ms = (time.perf_counter() - t0) * 1000
     logger.info(

@@ -1,4 +1,4 @@
-"""Tests for the FastAPI REST API endpoints."""
+"""Tests for the FastAPI endpoints."""
 
 from __future__ import annotations
 
@@ -26,11 +26,6 @@ def _make_png(width: int = 256, height: int = 256) -> bytes:
     return buf.getvalue()
 
 
-# ---------------------------------------------------------------------------
-# Health endpoint
-# ---------------------------------------------------------------------------
-
-
 class TestHealthEndpoint:
     def test_returns_200(self, client: TestClient) -> None:
         assert client.get("/health").status_code == 200
@@ -40,11 +35,6 @@ class TestHealthEndpoint:
 
     def test_body_has_timestamp(self, client: TestClient) -> None:
         assert "timestamp" in client.get("/health").json()
-
-
-# ---------------------------------------------------------------------------
-# Detect endpoint
-# ---------------------------------------------------------------------------
 
 
 class TestDetectEndpoint:

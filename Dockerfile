@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 FROM python:3.11-slim
 
-# System libraries required by scikit-image / Pillow and the health-check curl
+# System libs needed by scikit-image / Pillow, plus curl for the healthcheck.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libglib2.0-0 \
         curl \
@@ -9,20 +9,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install Python dependencies first — maximises Docker layer cache reuse
+# Deps first so they stay cached across source changes.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application source
 COPY . .
 
-# Persistent log directory
 RUN mkdir -p logs
 
-# REST API port
+# 8000 = REST API, 8501 = Streamlit.
 EXPOSE 8000
-# Streamlit UI port
 EXPOSE 8501
 
-# Default entry-point: REST API
 CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,115 +1,91 @@
-##  AI PCB Defect Detection & Classification System
+# AI PCB Defect Detection and Classification
+A small system for finding and labeling defects on printed circuit boards. It
+compares a test image against a defect-free reference, flags the regions that
+look wrong, and classifies each one with a CNN.
 
-An end-to-end system for detecting and classifying defects in Printed Circuit Boards (PCBs) using image processing and deep learning.
+Built during my internship and then cleaned up afterwards so it can actually be
+run, tested, and deployed.
 
-It compares test images with defect-free reference images, identifies anomalies, and classifies them into known defect categories.
 
----
+## What it does
 
-##  Overview
+Given a PCB image, the pipeline:
 
-This project combines **classical image processing** and **deep learning**:
+1. Picks the closest golden (defect-free) reference from a folder of known
+   boards, using perceptual hashing.
+2. Slides a window across the image and compares each patch to the matching
+   patch on the reference using SSIM.
+3. Sends the patches that differ through a ResNet-50 classifier trained on the
+   DeepPCB dataset.
+4. Runs Non-Max Suppression so overlapping detections collapse into one.
 
-* Uses **SSIM-based comparison** to detect anomalous regions
-* Applies **ResNet-50** to classify detected defects
-* Provides both a **Streamlit UI** and a **FastAPI backend**
+Output is a list of boxes with labels and confidences, and an annotated copy of
+the input image.
 
-The goal is to build a practical inspection system that can assist in automated PCB quality analysis.
 
----
+## Defect classes
 
-##  Features
+From the DeepPCB dataset:
 
-* SSIM-based sliding window detection
-* Automatic reference matching using pHash
-* CNN-based classification (ResNet-50 trained on DeepPCB)
-* Batch inference for efficient processing
-* Non-Max Suppression to refine detections
-* Streamlit interface for interactive testing
-* FastAPI endpoints for programmatic access
-* Configurable via environment variables
-* Logging and basic validation checks
-* Unit tests with CI pipeline
+- missing_hole
+- mouse_bite
+- open_circuit
+- short
+- spur
+- spurious_copper
 
----
 
-##  How It Works
+## Stack
 
-```
-Input Image → Reference Match → SSIM Comparison → CNN Classification → NMS → Output
-```
+- PyTorch / torchvision (ResNet-50)
+- scikit-image (SSIM), ImageHash (pHash), NumPy, Pillow
+- Streamlit for the UI, FastAPI for the API
+- pytest, ruff, mypy
+- Docker + docker-compose
+- GitHub Actions for CI
 
-1. **Reference Matching** — finds the closest defect-free image
-2. **SSIM Comparison** — identifies regions that differ significantly
-3. **Classification** — predicts defect type for detected regions
-4. **Post-processing** — removes overlapping detections
 
----
-
-##  Dataset
-
-Uses the **DeepPCB dataset**, which contains annotated PCB defects across 6 categories:
-
-* Missing Hole
-* Mouse Bite
-* Open Circuit
-* Short
-* Spur
-* Spurious Copper
-
----
-
-##  Tech Stack
-
-* **Deep Learning:** PyTorch, torchvision
-* **Image Processing:** scikit-image, ImageHash, NumPy
-* **Frontend:** Streamlit
-* **Backend:** FastAPI
-* **Testing:** pytest
-* **DevOps:** Docker, GitHub Actions
-* **Code Quality:** ruff, mypy
-
----
-
-##  Project Structure
+## Layout
 
 ```
-app.py              # Streamlit app
-api.py              # FastAPI endpoints
-inference_new.py    # Detection pipeline
-config.py           # Configuration
-model/              # Trained model
-tests/              # Unit tests
+app.py              Streamlit UI
+api.py              FastAPI endpoints
+inference_new.py    Detection pipeline
+config.py           Paths, ports, logging, env vars
+model/              Trained weights (.pth, gitignored)
+PCB_USED/           Golden reference images
+tests/              pytest suite
 ```
 
----
 
-##  Setup
+## Running it
 
-### Local
+Clone and install:
 
 ```bash
 git clone https://github.com/AradhyaStuti/AI_PCB_Defect_Detection_Classification_System.git
 cd AI_PCB_Defect_Detection_Classification_System
-
 python -m venv venv
-venv\Scripts\activate   # Windows
+venv\Scripts\activate          # on Windows
 pip install -r requirements.txt
 ```
 
-Run:
+Then either the UI:
 
 ```bash
 streamlit run app.py
 ```
 
-or
+or the API:
 
 ```bash
 uvicorn api:app --reload
 ```
 
----
+You need the trained weights at `model/best_resnet50_pcb_defects_50epochs.pth`
+and some golden images in `PCB_USED/`. Paths can be overridden via env vars
+(see `.env.example`).
+
 
 ### Docker
 
@@ -117,67 +93,65 @@ uvicorn api:app --reload
 docker-compose up --build
 ```
 
----
+Brings up the API on `:8000` and the Streamlit UI on `:8501`.
 
-##  API
 
-```bash
-GET /health
-POST /detect
+## API
+
+```
+GET  /health     health check
+POST /detect     upload a PCB image, get back detections
 ```
 
-Returns detected defects with labels and bounding boxes.
+`/detect` takes a multipart file upload and returns JSON with the defect
+count, inference time, and a list of `{label, confidence, box}` entries.
 
----
 
-##  Testing
+## Tests
 
 ```bash
 pytest -v
 ```
 
-Includes unit tests for both pipeline and API.
+The tests mock the model, so you don't need the weights to run them.
 
----
 
-##  What I Worked On
+## Config
 
-During my internship, I:
+All runtime settings are environment variables prefixed with `PCB_`. Copy
+`.env.example` to `.env` and edit what you need. See `config.py` for the full
+list.
 
-* Explored the DeepPCB dataset and defect categories
-* Implemented preprocessing and region extraction logic
-* Trained a ResNet-50 model for classification
-* Built an end-to-end inference pipeline
-* Developed a Streamlit interface for testing
 
----
+## What I did during the internship
 
-## Improvements After Internship
+- Got familiar with the DeepPCB dataset and the defect categories
+- Wrote the preprocessing and region-extraction logic
+- Trained the ResNet-50 classifier (`trained.ipynb`)
+- Put together the detection pipeline (`inference.ipynb`)
+- Built a Streamlit UI to test it interactively
 
-I later refined the project to make it more structured and easier to run:
 
-* Centralized configuration using environment variables
-* Improved inference efficiency with batch processing
-* Added proper logging and error handling
-* Introduced API endpoints for external use
-* Added tests and CI setup
+## What I added afterwards
 
----
+- Moved config into a single file driven by env vars
+- Rewrote the inference pipeline as a class so it loads the model once
+- Added batching so classification isn't one-patch-at-a-time
+- Added a FastAPI layer and a Dockerfile / compose setup
+- Wrote a pytest suite and a GitHub Actions workflow
+- Added logging to a rotating file
 
-##  Future Work
 
-* Explore transformer-based models
-* Improve detection for varying defect sizes
-* Support batch image processing
-* Extend to real-time inspection
+## Things I'd still like to try
 
----
+- Transformer-based backbones (ViT, Swin)
+- Multi-scale windowing for defects of different sizes
+- Real PCB images instead of only the DeepPCB ones
 
-##  Author
 
-**Aradhya Stuti**
+## Author
 
-* GitHub: [https://github.com/AradhyaStuti](https://github.com/AradhyaStuti)
-* LinkedIn: [https://www.linkedin.com/in/aradhya-stuti-9b2b9529a](https://www.linkedin.com/in/aradhya-stuti-9b2b9529a)
+Aradhya Stuti
 
----
+- https://github.com/AradhyaStuti
+- https://www.linkedin.com/in/aradhya-stuti-9b2b9529a

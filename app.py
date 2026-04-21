@@ -1,4 +1,4 @@
-"""Streamlit frontend for PCB defect detection and classification."""
+"""Streamlit UI for PCB defect detection."""
 
 from __future__ import annotations
 
@@ -16,21 +16,12 @@ configure_logging()
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Cached pipeline — survives Streamlit reruns without reloading the model
-# ---------------------------------------------------------------------------
-
 @st.cache_resource(show_spinner="Loading model...")
 def _get_pipeline() -> PCBDefectPipeline:
     return PCBDefectPipeline()
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def _build_log_text(anomalies: list[dict]) -> str:
-    """Generate a CSV-style detection log."""
     timestamp = datetime.now(tz=timezone.utc).isoformat()
     lines = [f"PCB Defect Detection Log - {timestamp}", ""]
 
@@ -45,15 +36,10 @@ def _build_log_text(anomalies: list[dict]) -> str:
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# Main UI
-# ---------------------------------------------------------------------------
-
 def main() -> None:
     st.set_page_config(page_title="PCB Defect Detection", layout="wide")
     st.title("PCB Differential Defect Detection")
 
-    # Eagerly warm the model so the first detection isn't slow
     pipeline = _get_pipeline()
 
     uploaded_file = st.file_uploader(
@@ -62,10 +48,9 @@ def main() -> None:
     if uploaded_file is None:
         return
 
-    # --- Input validation ---------------------------------------------------
     file_size_mb = uploaded_file.size / (1024 * 1024)
     if file_size_mb > MAX_UPLOAD_MB:
-        st.error(f"File is {file_size_mb:.1f} MB. Maximum allowed is {MAX_UPLOAD_MB} MB.")
+        st.error(f"File is {file_size_mb:.1f} MB. Max allowed is {MAX_UPLOAD_MB} MB.")
         return
 
     input_image = Image.open(uploaded_file).convert("RGB")
@@ -86,7 +71,7 @@ def main() -> None:
             return
         except Exception:
             logger.exception("Inference failed")
-            st.error("Detection failed unexpectedly. Check logs for details.")
+            st.error("Detection failed. Check logs for details.")
             return
 
     with col2:
@@ -109,7 +94,7 @@ def main() -> None:
     else:
         st.info("No defects detected.")
 
-    st.subheader("Download outputs")
+    st.subheader("Download")
 
     img_buf = io.BytesIO()
     result_image.save(img_buf, format="PNG")
