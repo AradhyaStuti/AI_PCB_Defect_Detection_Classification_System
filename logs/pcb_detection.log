@@ -1,5 +1,0 @@
-2026-03-24 09:30:56,175 [INFO] inference_new: Loaded 10 golden reference images
-2026-03-24 09:31:06,167 [INFO] inference_new: Using device: cpu
-2026-03-24 09:31:06,168 [INFO] inference_new: Loading model from C:\Users\User\Desktop\AI PCB DEFECT DETECTION AND CLASSIFICATION\model\best_resnet50_pcb_defects_50epochs.pth
-2026-03-24 09:31:06,322 [INFO] inference_new: Classes (6): ['missing_hole', 'mouse_bite', 'open_circuit', 'short', 'spur', 'spurious_copper']
-2026-03-24 09:31:12,465 [INFO] inference_new: Detection complete: 5 defects in 17.94s
