@@ -1,7 +1,5 @@
 """Streamlit UI for PCB defect detection."""
 
-from __future__ import annotations
-
 import io
 import logging
 from datetime import datetime, timezone
@@ -16,12 +14,14 @@ configure_logging()
 logger = logging.getLogger(__name__)
 
 
+# cache_resource so we don't reload the model on every rerun. Streamlit
+# re-executes the script top to bottom every time the user clicks something.
 @st.cache_resource(show_spinner="Loading model...")
-def _get_pipeline() -> PCBDefectPipeline:
+def get_pipeline() -> PCBDefectPipeline:
     return PCBDefectPipeline()
 
 
-def _build_log_text(anomalies: list[dict]) -> str:
+def build_log_text(anomalies: list[dict]) -> str:
     timestamp = datetime.now(tz=timezone.utc).isoformat()
     lines = [f"PCB Defect Detection Log - {timestamp}", ""]
 
@@ -40,23 +40,21 @@ def main() -> None:
     st.set_page_config(page_title="PCB Defect Detection", layout="wide")
     st.title("PCB Differential Defect Detection")
 
-    pipeline = _get_pipeline()
+    pipeline = get_pipeline()
 
-    uploaded_file = st.file_uploader(
-        "Upload PCB image", type=["jpg", "jpeg", "png"]
-    )
-    if uploaded_file is None:
+    uploaded = st.file_uploader("Upload PCB image", type=["jpg", "jpeg", "png"])
+    if uploaded is None:
         return
 
-    file_size_mb = uploaded_file.size / (1024 * 1024)
-    if file_size_mb > MAX_UPLOAD_MB:
-        st.error(f"File is {file_size_mb:.1f} MB. Max allowed is {MAX_UPLOAD_MB} MB.")
+    size_mb = uploaded.size / (1024 * 1024)
+    if size_mb > MAX_UPLOAD_MB:
+        st.error(f"File is {size_mb:.1f} MB. Max allowed is {MAX_UPLOAD_MB} MB.")
         return
 
-    input_image = Image.open(uploaded_file).convert("RGB")
+    input_image = Image.open(uploaded).convert("RGB")
 
-    col1, col2 = st.columns(2)
-    with col1:
+    col_in, col_out = st.columns(2)
+    with col_in:
         st.subheader("Input image")
         st.image(input_image, use_container_width=True)
 
@@ -74,7 +72,7 @@ def main() -> None:
             st.error("Detection failed. Check logs for details.")
             return
 
-    with col2:
+    with col_out:
         st.subheader("Result")
         st.image(result_image, use_container_width=True)
 
@@ -99,19 +97,19 @@ def main() -> None:
     img_buf = io.BytesIO()
     result_image.save(img_buf, format="PNG")
 
-    dl_col1, dl_col2 = st.columns(2)
-    with dl_col1:
+    dl_img, dl_log = st.columns(2)
+    with dl_img:
         st.download_button(
-            label="Download result image (PNG)",
+            "Download result image (PNG)",
             data=img_buf.getvalue(),
             file_name="pcb_result.png",
             mime="image/png",
             key="download-image",
         )
-    with dl_col2:
+    with dl_log:
         st.download_button(
-            label="Download detection log (TXT)",
-            data=_build_log_text(anomalies),
+            "Download detection log (TXT)",
+            data=build_log_text(anomalies),
             file_name="pcb_detection_log.txt",
             mime="text/plain",
             key="download-log",

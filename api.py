@@ -1,10 +1,7 @@
 """FastAPI layer around the PCB defect detection pipeline.
 
-Run with:
-    uvicorn api:app --reload
+Run with: ``uvicorn api:app --reload``
 """
-
-from __future__ import annotations
 
 import io
 import logging
@@ -28,6 +25,10 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
+# One pipeline shared across all requests. Loading the ResNet weights costs ~1s,
+# so we pay it once on the first /detect rather than at module import time
+# (which would slow down `--reload` and the test suite).
 _pipeline: PCBDefectPipeline | None = None
 
 
@@ -51,12 +52,12 @@ class InferenceResponse(BaseModel):
     timestamp: str
 
 
-@app.get("/health", tags=["ops"])
+@app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "timestamp": datetime.now(tz=timezone.utc).isoformat()}
 
 
-@app.post("/detect", response_model=InferenceResponse, tags=["inference"])
+@app.post("/detect", response_model=InferenceResponse)
 async def detect(file: UploadFile = File(...)) -> InferenceResponse:
     contents = await file.read()
     size_mb = len(contents) / (1024 * 1024)
@@ -82,18 +83,15 @@ async def detect(file: UploadFile = File(...)) -> InferenceResponse:
 
     elapsed_ms = (time.perf_counter() - t0) * 1000
     logger.info(
-        "Detected %d defects in %.1f ms (file=%s)", len(detections), elapsed_ms, file.filename
+        "Detected %d defects in %.1f ms (file=%s)",
+        len(detections), elapsed_ms, file.filename,
     )
 
     return InferenceResponse(
         defect_count=len(detections),
         inference_time_ms=round(elapsed_ms, 2),
         detections=[
-            DetectionResult(
-                label=d["label"],
-                confidence=round(d["confidence"], 4),
-                box=d["box"],
-            )
+            DetectionResult(label=d["label"], confidence=d["confidence"], box=d["box"])
             for d in detections
         ],
         timestamp=datetime.now(tz=timezone.utc).isoformat(),
