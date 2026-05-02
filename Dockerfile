@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.11-slim
+FROM python:3.10-slim
 
 # System libs needed by scikit-image / Pillow, plus curl for the healthcheck.
 RUN apt-get update && apt-get install -y --no-install-recommends \
