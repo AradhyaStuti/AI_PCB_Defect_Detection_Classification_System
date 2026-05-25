@@ -9,5 +9,3 @@ __pycache__
 logs/
 .env
 *.ipynb
-Image Processing/
-image/

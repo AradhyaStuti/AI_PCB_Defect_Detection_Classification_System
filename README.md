@@ -32,20 +32,20 @@ From the DeepPCB dataset:
 * PyTorch / torchvision (ResNet-50)
 * scikit-image (SSIM), ImageHash (pHash), NumPy, Pillow
 * Streamlit (UI), FastAPI (API)
-* pytest, ruff, mypy
 * Docker + docker-compose
-* GitHub Actions for CI
+
+Dev tooling: pytest, ruff, mypy, GitHub Actions.
 
 ## Project structure
 
 ```
-app.py              Streamlit UI
-api.py              FastAPI endpoints
-inference_new.py    Detection pipeline
-config.py           Config + env handling
-model/              Trained weights (.pth, gitignored)
-PCB_USED/           Golden reference images
-tests/              pytest suite
+app.py          Streamlit UI
+api.py          FastAPI endpoints
+inference.py    Detection pipeline
+config.py       Config + env handling
+model/          Trained weights (.pth, gitignored)
+PCB_USED/       Golden reference images
+tests/          pytest suite
 ```
 
 ## Running locally
@@ -57,7 +57,8 @@ git clone https://github.com/AradhyaStuti/AI_PCB_Defect_Detection_Classification
 cd AI_PCB_Defect_Detection_Classification_System
 
 python -m venv venv
-venv\Scripts\activate          # Windows
+venv\Scripts\activate           # Windows
+source venv/bin/activate        # Linux / macOS
 pip install -r requirements.txt
 ```
 
