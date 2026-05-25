@@ -10,11 +10,11 @@ from datetime import datetime, timezone
 
 import uvicorn
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel
 
 from config import API_HOST, API_PORT, MAX_UPLOAD_MB, configure_logging
-from inference_new import ImageTooLargeError, PCBDefectPipeline
+from inference import ImageTooLargeError, PCBDefectPipeline
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ def health() -> dict[str, str]:
 
 
 @app.post("/detect", response_model=InferenceResponse)
-async def detect(file: UploadFile = File(...)) -> InferenceResponse:
+async def detect(file: UploadFile = File(...)) -> InferenceResponse:  # noqa: B008
     contents = await file.read()
     size_mb = len(contents) / (1024 * 1024)
     if size_mb > MAX_UPLOAD_MB:
@@ -69,7 +69,7 @@ async def detect(file: UploadFile = File(...)) -> InferenceResponse:
 
     try:
         image = Image.open(io.BytesIO(contents)).convert("RGB")
-    except Exception as exc:
+    except UnidentifiedImageError as exc:
         raise HTTPException(status_code=400, detail="Could not decode image.") from exc
 
     t0 = time.perf_counter()
@@ -84,7 +84,9 @@ async def detect(file: UploadFile = File(...)) -> InferenceResponse:
     elapsed_ms = (time.perf_counter() - t0) * 1000
     logger.info(
         "Detected %d defects in %.1f ms (file=%s)",
-        len(detections), elapsed_ms, file.filename,
+        len(detections),
+        elapsed_ms,
+        file.filename,
     )
 
     return InferenceResponse(

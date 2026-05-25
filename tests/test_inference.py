@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from inference_new import (
+from inference import (
     DEFAULT_CLASS_NAMES,
     ImageTooLargeError,
     PCBDefectPipeline,
@@ -14,8 +14,8 @@ from inference_new import (
 
 def test_run_with_no_golden_refs_returns_input(mock_pipeline, sample_image):
     out, anomalies = mock_pipeline.run(sample_image)
-    assert isinstance(out, Image.Image)
     assert anomalies == []
+    assert out.tobytes() == sample_image.tobytes()
 
 
 def test_run_rejects_tiny(mock_pipeline, small_image):
@@ -23,10 +23,13 @@ def test_run_rejects_tiny(mock_pipeline, small_image):
         mock_pipeline.run(small_image)
 
 
-@pytest.mark.parametrize("size, exc, msg", [
-    ((64, 64), ValueError, "smaller than"),
-    ((5000, 5000), ImageTooLargeError, "pixels"),
-])
+@pytest.mark.parametrize(
+    "size, exc, msg",
+    [
+        ((64, 64), ValueError, "smaller than"),
+        ((5000, 5000), ImageTooLargeError, "pixels"),
+    ],
+)
 def test_validate_image_rejects(size, exc, msg):
     img = Image.fromarray(np.zeros((size[1], size[0], 3), dtype=np.uint8))
     with pytest.raises(exc, match=msg):
@@ -68,9 +71,9 @@ def test_golden_db_skips_non_image_files(mock_pipeline):
     golden_dir = mock_pipeline.golden_dir
     golden_dir.mkdir(parents=True, exist_ok=True)
     for name in ("ref_01.png", "ref_02.png"):
-        Image.fromarray(
-            np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8)
-        ).save(golden_dir / name)
+        Image.fromarray(np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8)).save(
+            golden_dir / name
+        )
     (golden_dir / "readme.txt").write_text("not an image")
 
     # Reset the lazy cache so it re-scans the now-populated dir.
@@ -84,7 +87,7 @@ def test_draw_detections_changes_pixels(sample_image):
         {"box": [100, 100, 150, 150], "label": "short", "confidence": 0.88},
     ]
     out = PCBDefectPipeline.draw_detections(sample_image, detections)
-    assert np.array(out).sum() != np.array(sample_image).sum()
+    assert not np.array_equal(np.array(out), np.array(sample_image))
 
 
 def test_draw_detections_empty_returns_copy(sample_image):

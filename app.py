@@ -8,7 +8,7 @@ import streamlit as st
 from PIL import Image
 
 from config import MAX_UPLOAD_MB, configure_logging
-from inference_new import ImageTooLargeError, PCBDefectPipeline
+from inference import ImageTooLargeError, PCBDefectPipeline
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -78,17 +78,19 @@ def main() -> None:
 
     if anomalies:
         st.subheader(f"Detected defects ({len(anomalies)})")
-        st.dataframe([
-            {
-                "Label": d["label"],
-                "Confidence": round(d["confidence"], 3),
-                "x1": d["box"][0],
-                "y1": d["box"][1],
-                "x2": d["box"][2],
-                "y2": d["box"][3],
-            }
-            for d in anomalies
-        ])
+        st.dataframe(
+            [
+                {
+                    "Label": d["label"],
+                    "Confidence": round(d["confidence"], 3),
+                    "x1": d["box"][0],
+                    "y1": d["box"][1],
+                    "x2": d["box"][2],
+                    "y2": d["box"][3],
+                }
+                for d in anomalies
+            ]
+        )
     else:
         st.info("No defects detected.")
 

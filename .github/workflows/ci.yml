@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: "3.10"
       - run: pip install -r requirements.txt mypy
-      - run: mypy inference_new.py app.py api.py config.py
+      - run: mypy inference.py app.py api.py config.py
 
   test:
     runs-on: ubuntu-latest

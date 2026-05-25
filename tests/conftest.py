@@ -7,7 +7,7 @@ import pytest
 import torch
 from PIL import Image
 
-from inference_new import DEFAULT_CLASS_NAMES, PCBDefectPipeline
+from inference import DEFAULT_CLASS_NAMES, PCBDefectPipeline
 
 
 @pytest.fixture
