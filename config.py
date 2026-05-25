@@ -1,21 +1,13 @@
-"""Paths, API, and logging config. Everything overridable via env vars.
-
-Env vars are prefixed with PCB_ so they don't collide with anything else
-the host might already be using. python-dotenv is optional: handy in
-dev with a local .env, not needed in prod where the host sets them directly.
-"""
+"""Paths, API, and logging settings, all overridable via PCB_* env vars."""
 
 import logging
 import logging.handlers
 import os
 from pathlib import Path
 
-try:
-    from dotenv import load_dotenv
+from dotenv import load_dotenv
 
-    load_dotenv()
-except ImportError:
-    pass
+load_dotenv()
 
 
 _BASE_DIR = Path(__file__).resolve().parent
@@ -36,10 +28,10 @@ MAX_UPLOAD_MB = int(os.environ.get("PCB_MAX_UPLOAD_MB", "10"))
 LOG_LEVEL = os.environ.get("PCB_LOG_LEVEL", "INFO")
 
 
-def configure_logging():
+def configure_logging() -> None:
     root = logging.getLogger()
     if root.handlers:
-        # Already configured by another module; leave it alone.
+        # Both api.py and app.py call this on import; second call is a no-op.
         return
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
